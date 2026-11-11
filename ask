@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""
+ask — Send a prompt to a language model via OpenRouter and stream the reply.
+
+Function:
+    Single-file CLI, standard library only. Reads prompt from argv or stdin,
+    POSTs to OpenRouter with stream=true, and streams delta.content to stdout.
+    All errors go to stderr. Exit codes: 0 success, 1 runtime, 2 usage, 130 Ctrl-C.
+
+Secrets:
+    Key is read ONLY from OPENROUTER_API_KEY. No flag, never printed, logged,
+    or included in errors.
+"""
+
+import sys
+import os
+import json
+import argparse
+import urllib.request
+import urllib.error
+
+DEFAULT_MODEL = "meta-llama/llama-3.2-3b-instruct:free"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog="ask",
+        description="Send a prompt to a language model via OpenRouter and stream the reply.",
+    )
+    parser.add_argument("prompt", nargs="?", help="The prompt. If omitted, reads from stdin.")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="OpenRouter model ID. Defaults to a free model.")
+    return parser.parse_args()
+
+def get_prompt(args):
+    if args.prompt is not None:
+        prompt = args.prompt
+    elif not sys.stdin.isatty():
+        prompt = sys.stdin.read()
+    else:
+        prompt = ""
+    prompt = prompt.strip()
+    if not prompt:
+        print("usage: ask [--model MODEL] PROMPT", file=sys.stderr)
+        print("       echo PROMPT | ask [--model MODEL]", file=sys.stderr)
+        sys.exit(2)
+    return prompt
+
+def main():
+    args = parse_args()
+    prompt = get_prompt(args)
+
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        print("OPENROUTER_API_KEY is not set", file=sys.stderr)
+        sys.exit(1)
+
+    payload = {
+        "model": args.model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": True,
+    }
+
+    req = urllib.request.Request(
+        API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            for raw_line in resp:
+                line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+                if not line:
+                    continue
+                if line.startswith(":"):
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                data = line[len("data: "):]
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                if "error" in chunk:
+                    err = chunk["error"].get("message", str(chunk["error"]))
+                    print(f"stream error: {err}", file=sys.stderr)
+                    sys.exit(1)
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                content = delta.get("content")
+                if content:
+                    sys.stdout.write(content)
+                    sys.stdout.flush()
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except urllib.error.HTTPError as e:
+        code = e.code
+        if code == 401:
+            print("authentication failed (401)", file=sys.stderr)
+        elif code in (400, 404):
+            print(f"model not found: {args.model}", file=sys.stderr)
+        elif code == 429:
+            print("rate limited (429), try again shortly", file=sys.stderr)
+        else:
+            print(f"HTTP error {code}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"network error: {e.reason}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"stream error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(130)
