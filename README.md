@@ -60,3 +60,11 @@ Open an issue titled `Existing work: <your name>` with a link to something you a
 ---
 
 *Aedin Insight, LLC | Albuquerque, NM | aedininsight.com*
+
+## Implementation (James Gilbert)
+
+Built as a single-file Python 3 script, standard library only. 
+Streams responses via SSE, strictly reads `OPENROUTER_API_KEY` from the environment, and routes all errors to `stderr`.
+
+See `NOTES.md` for known limitations (OpenRouter paywall blocked happy-path testing).
+See `CHANGELOG.md` for the build history.
