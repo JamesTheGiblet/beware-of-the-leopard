@@ -78,9 +78,9 @@ def main():
                     continue
                 if line.startswith(":"):
                     continue
-                if not line.startswith("data: "):
+                if not line.startswith("data:"):
                     continue
-                data = line[len("data: "):]
+                data = line[len("data:"):].strip()
                 if data == "[DONE]":
                     break
                 try:
