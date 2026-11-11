@@ -11,6 +11,7 @@
 - Committed core logic, `NOTES.md`, and executable bit (commit 79180e2).
 - Polish: Made SSE parser robust to missing space after `data:` prefix.
 - Polish: Added test matrix to `README.md` and PR description.
+- Context: Completed in 31 minutes (18:48-19:19) using Termux on an S24 phone.
 
 ### Bad
 - Could not test the 200 OK happy path (streaming) because OpenRouter currently requires a credit card to generate an API key.
