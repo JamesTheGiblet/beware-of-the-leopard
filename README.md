@@ -70,6 +70,7 @@ See `NOTES.md` for known limitations (OpenRouter paywall blocked happy-path test
 See `CHANGELOG.md` for the build history.
 
 ### Test Results
+
 | Case | Result | Exit Code |
 |---|---|---|
 | `./ask ; echo $?` | Usage printed | 2 |
