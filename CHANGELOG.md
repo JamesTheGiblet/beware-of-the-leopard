@@ -3,6 +3,7 @@
 ## [v1.0.0] — Challenge Submission
 
 ### Good
+- Code and `NOTES.md` committed to `james-gilbert` branch (commit 79180e2).
 - Built single-file Python CLI (`ask`), standard library only.
 - Implemented strict SSE parsing, flushing `delta.content` live to stdout.
 - Read API key exclusively from `OPENROUTER_API_KEY` environment variable.
