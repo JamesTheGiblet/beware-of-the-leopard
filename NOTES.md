@@ -8,3 +8,24 @@ Tested: Usage (2), Missing Key (1), Auth 401 (1), Network (1).
 Unable to test: Happy path (200 OK) streaming due to key gating.
 Time/Env: 31 mins (18:48-19:19), built via AI on Termux (S24 phone).
 Ask: Contract route open to UK sole traders? Retry on 429, or fail fast?
+
+---
+
+## Stage 2: Scaling to 500 RPM
+
+**What breaks first?**
+1. **Provider Rate Limits (429s):** A fleet of agents blasting 500 requests/minute will hit OpenRouter or underlying model limits immediately. 
+2. **Process Spawning:** Forking 500 Python processes a minute (`./ask`) is a massive waste of CPU and memory. The OS will thrash before the network breaks.
+3. **Observability & Retries:** With no centralised queue or logging, a dropped connection or a mid-stream error vanishes into an agent's stdout. There is no retry mechanism; a failed call is just a failed agent.
+
+**Build vs. Buy:**
+- **Buy (or adopt OSS):** A long-running API gateway with built-in rate limiting and fallback (e.g., LiteLLM or a lightweight FastAPI + Redis token bucket). We must buy the connection pooling, retry logic, and provider-failover. 
+- **Build:** The agent orchestration layer. We need a thin, unified client library that knows *which* model to route to (e.g., cheap/fast for parsing, expensive/smart for reasoning). 
+
+**What I refuse to build:**
+- **The CLI:** I would refuse to scale this script. The architecture must shift from a spawned binary to a long-running HTTP/gRPC service.
+- **A custom provider wrapper:** I would refuse to hand-roll retry/backoff logic for 10 different LLM APIs when LiteLLM or a Redis-backed queue does it better and safer.
+- **A billing/token manager:** If agents are spending money, let the provider (OpenRouter) handle the billing constraints.
+
+**One question for the client before starting:**
+*"What is the blast radius of a single failed call? If a model provider goes down mid-stream, does the agent fail the whole task, or can it retry with a fallback model without losing state?"*
