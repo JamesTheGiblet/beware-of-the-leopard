@@ -1,5 +1,30 @@
 # CHANGELOG — ask
 
+## [v1.1.0] — Post-submission fixes (review feedback)
+
+### Good
+- Verified the happy path. Successfully streamed a reply from OpenRouter
+  using a `:free` model (exit 0).
+- Updated default model from `meta-llama/llama-3.2-3b-instruct:free` (retired)
+  to `meta-llama/llama-3.3-70b-instruct:free`.
+- Updated `NOTES.md` with:
+  - The 429 fail-fast design rationale.
+  - The Stage 2 (500 RPM) architecture answer (build vs. buy, refused scope).
+  - Reworded the OpenRouter blocker to accurately reflect the billing UI.
+
+### Bad
+- The original default model was retired by OpenRouter, causing a
+  `model not found` error on the first real happy-path test.
+- Initially assumed the OpenRouter key generation required a hard
+  paywall, which was incorrect.
+
+### Ugly
+- The OpenRouter UI requires setting a "Credit limit" (we used $10)
+  before issuing a key. This looks exactly like requiring a credit
+  card upfront and caused the wrong assumption in the original notes.
+  Lesson: test the happy path before claiming a blocker, and check
+  the actual UI carefully.
+
 ## [v1.0.0] — Challenge Submission
 
 ### Good
@@ -11,12 +36,15 @@
 - Committed core logic, `NOTES.md`, and executable bit (commit 79180e2).
 - Polish: Made SSE parser robust to missing space after `data:` prefix.
 - Polish: Added test matrix to `README.md` and PR description.
-- Context: Completed in 31 minutes (18:48-19:19) using Termux on an S24 phone.
 
 ### Bad
-- Could not test the 200 OK happy path (streaming) because OpenRouter currently requires a credit card to generate an API key.
-- Because auth is checked before routing, the 404 (model not found) test returned a 401, as expected with a fake key.
+- Could not test the 200 OK happy path (streaming) because I initially
+  believed OpenRouter required a credit card to generate an API key.
+- Because auth is checked before routing, the 404 (model not found)
+  test returned a 401, as expected with a fake key.
 
 ### Ugly
-- Tried to update PR body with `gh pr edit --body "..."`, but the shell executed the markdown backticks as commands. Terminal spam ensued.
-- Attempted to write a temp file to `/tmp` on Termux, which resulted in a permission denied error due to Android sandboxing.
+- Tried to update PR body with `gh pr edit --body "..."`, but the shell
+  executed the markdown backticks as commands. Terminal spam ensued.
+- Attempted to write a temp file to `/tmp` on Termux, which resulted in a
+  permission denied error due to Android sandboxing.
