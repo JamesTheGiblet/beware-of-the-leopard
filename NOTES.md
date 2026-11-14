@@ -3,11 +3,14 @@ Secrets: env var only; no key flag (keeps it out of shell history/ps).
 Errors: stderr only; exit 0/1/2/130 documented in README.
 Cut: retries, config, history, colour, model listing.
 Assumed: Python 3.8+ available; mid-stream errors arrive as an `error` object.
-Blocker: My specific OpenRouter signup flow required entering billing details before issuing a key.
-Tested: Usage (2), Missing Key (1), Auth 401 (1), Network (1).
-Unable to test: Happy path (200 OK) streaming due to key gating.
-Time/Env: 31 mins (18:48-19:19), built via AI on Termux (S24 phone).
-Ask: Contract route open to UK sole traders? Retry on 429, or fail fast?
+Blocker: OpenRouter UI requires setting a credit limit ($10) before issuing a key (easily misread as a hard paywall).
+Tested: Usage (2), Missing Key (1), Auth 401 (1), Network (1), Happy Path (0).
+Unable to test initially: Happy path was blocked by UI confusion on billing.
+Ask: Is the contract route open to UK sole traders? 
+
+## Decisions
+
+**Retry on 429:** I chose fail fast (exit 1). For a CLI designed to be piped into other tools (`echo "..." | ask > out.txt`), silent retries complicate the contract. If a 429 occurs, I want the shell script to know immediately so it can decide whether to sleep or alert the operator. Exponential backoff is a great addition for a v2, but for a 60-minute constraint, predictable failure is better than unpredictable latency.
 
 ---
 
@@ -28,4 +31,4 @@ Ask: Contract route open to UK sole traders? Retry on 429, or fail fast?
 - **A billing/token manager:** If agents are spending money, let the provider (OpenRouter) handle the billing constraints.
 
 **One question for the client before starting:**
-*"What is the blast radius of a single failed call? If a model provider goes down mid-stream, does the agent fail the whole task, or can it retry with a fallback model without losing state?"*
+`"What is the blast radius of a single failed call? If a model provider goes down mid-stream, does the agent fail the whole task, or can it retry with a fallback model without losing state?"`
