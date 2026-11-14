@@ -32,3 +32,7 @@ Ask: Is the contract route open to UK sole traders?
 
 **One question for the client before starting:**
 `"What is the blast radius of a single failed call? If a model provider goes down mid-stream, does the agent fail the whole task, or can it retry with a fallback model without losing state?"`
+
+    
+## Model Resilience
+OpenRouter frequently retires `:free` models. The CLI now includes a `FALLBACK_MODELS` list. It attempts the specified model (or `openrouter/free` as a router default), and if it hits a 404 (model retired) or 429 (rate limit), it seamlessly falls back to the next available free model, logging the attempt to stderr so the stdout stream remains clean. This directly addresses the provider-deprecation failure mode discussed in Stage 2.

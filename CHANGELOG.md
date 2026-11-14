@@ -1,5 +1,19 @@
 # CHANGELOG — ask
 
+## [v1.1.1] — Resilience update
+
+### Good
+- Added `FALLBACK_MODELS` list to `ask`.
+- If a model is retired (404) or rate-limited (429), the CLI automatically tries the next model in the list.
+- Logs the model attempt to stderr, keeping stdout clean for piping.
+- Verified happy path with `openrouter/free`.
+
+### Bad
+- Hardcoding fallback models still requires manual updates when OpenRouter retires the entire list.
+
+### Ugly
+- Discovered that `meta-llama/llama-3.3-70b-instruct:free` was retired mid-interview. The router (`openrouter/free`) is the most stable default.
+
 ## [v1.1.0] — Post-submission fixes (review feedback)
 
 ### Good
