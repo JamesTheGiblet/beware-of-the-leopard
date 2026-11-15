@@ -36,3 +36,16 @@ Ask: Is the contract route open to UK sole traders?
     
 ## Model Resilience
 OpenRouter frequently retires `:free` models. The CLI now includes a `FALLBACK_MODELS` list. It attempts the specified model (or `openrouter/free` as a router default), and if it hits a 404 (model retired) or 429 (rate limit), it seamlessly falls back to the next available free model, logging the attempt to stderr so the stdout stream remains clean. This directly addresses the provider-deprecation failure mode discussed in Stage 2.
+
+    
+### Addendum: Fallback vs. Fail Fast
+
+The reviewer caught a real contradiction: earlier I argued for fail-fast (exit 1 on 429), but the fallback loop now decides for the caller by silently swapping models.
+
+**The resolution:** I was solving the wrong failure mode. 
+*   **429 (Rate Limit):** This is a *state* issue. The API is working, but asking us to slow down. Fail-fast is correct here so a shell script can sleep and retry.
+*   **404 (Model Retired):** This is a *configuration* issue. The hardcoded model in the script is dead. Failing fast just forces every operator to manually update their script. 
+
+The fallback loop should **only trigger on 404**. If the model is missing, seamlessly routing to the next available `:free` model preserves the pipe contract (a successful reply is still a successful reply). If it hits a 429, it should still fail-fast and let the caller decide.
+
+The current code loops on both, which was a quick fix. The *correct* pipe contract is: fallback for 404, abort for 429. I'll update the code to make that distinction clear.
