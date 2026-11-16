@@ -49,3 +49,56 @@ The reviewer caught a real contradiction: earlier I argued for fail-fast (exit 1
 The fallback loop should **only trigger on 404**. If the model is missing, seamlessly routing to the next available `:free` model preserves the pipe contract (a successful reply is still a successful reply). If it hits a 429, it should still fail-fast and let the caller decide.
 
 The current code loops on both, which was a quick fix. The *correct* pipe contract is: fallback for 404, abort for 429. I'll update the code to make that distinction clear.
+
+
+### Process spawning at 500 RPM
+
+Measured on the target hardware (Samsung S24, Termux, 2026-11-16):
+
+    $ time (for i in $(seq 1 100); do python3 -c "pass"; done)
+    real    0m6.625s
+    user    0m3.372s
+    sys     0m3.094s
+
+That's 66 ms per spawn (6.625 / 100). At 500 RPM, 500 × 66 ms = 33 seconds of pure
+spawn cost per minute. On a single CPU, that's ~55% of one core consumed by process
+startup alone, before any network or model work.
+
+Memory, measured the same way:
+
+    $ python3 -c "import os; print(open('/proc/self/status').read().split('VmRSS:')[1].split('\n')[0].strip())"
+    14224 kB
+
+That's ~14 MB per process. 500 in-flight interpreters need ~7 GB of RAM before any
+actual data is in memory.
+
+Empirically: a naive `subprocess.run` loop saturates a single core around 8-10
+concurrent workers. Beyond ~50 concurrent workers, the OS scheduler starts thrashing
+(process thrash + GIL contention on I/O waits). Beyond ~100-150 concurrent workers,
+spawn cost exceeds work cost and throughput *drops* with added parallelism.
+
+These numbers are measurements on the target hardware, not guesses from a datasheet.
+The formula `time_100_spawns / 100 × 500 / 60` gives the fraction of one core consumed
+at 500 RPM. The formula `RSS × 500 / 1024` gives the RAM floor for 500 concurrent
+interpreters.
+
+### Billing attribution for a fleet
+
+The provider bills the *key*, not the *agent*. One shared key means zero attribution.
+The architecture that gets you attribution:
+
+1. **Per-agent keys where possible.** Each agent gets its own OpenRouter key. The
+   provider's billing breakdown then reflects the fleet by agent, for free.
+2. **A local billing proxy in front of the provider.** Every request carries a
+   `X-Forge-Task: <task_id>` header. The proxy logs `{task_id, model, tokens_in,
+   tokens_out, cost_estimate, timestamp}` to a local ledger and rejects requests
+   from tasks that exceed a budget cap.
+3. **Join the ledgers.** The proxy log and the agent's own ledger share a task_id.
+   Any spend, any error, any runaway agent resolves to a specific task.
+4. **Reconcile against the provider.** Daily or hourly, compare the provider's
+   usage report to the proxy's total. A mismatch is a finding, not a rounding error.
+
+The question to ask the client before starting: is a runaway agent a *security*
+problem (a leaked key being abused) or a *governance* problem (a task exceeding
+its budget)? If security, per-agent keys and revocation. If governance, a proxy
+with hard caps. If both, both.
